@@ -1,0 +1,34 @@
+name: PRBot
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    if: ${{ github.event_name == 'pull_request' || (github.event.issue.pull_request && github.event.sender.type != 'Bot') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run PRBot with Command Code
+        uses: jaibhasin/PRBot@v1.0.2
+        env:
+          # PRBot supports overriding its OpenRouter-compatible endpoint through
+          # OPENROUTER_URL. Command Code exposes an OpenAI-compatible endpoint.
+          OPENROUTER_URL: https://api.commandcode.ai/provider/v1/chat/completions
+        with:
+          # Store the Command Code API key in the repository Actions secret
+          # named COMMAND_CODE_API_KEY. Never commit the key itself.
+          openrouter_api_key: ${{ secrets.COMMAND_CODE_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          review_model: deepseek/deepseek-v4.1-flash
+          verification_model: deepseek/deepseek-v4.1-flash
+          max_concurrency: "4"
