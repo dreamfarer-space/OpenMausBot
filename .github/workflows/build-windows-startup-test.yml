@@ -1,0 +1,57 @@
+name: Build Windows Startup Test
+
+on:
+  push:
+    branches:
+      - build/windows-startup-test
+    paths:
+      - ".github/workflows/build-windows-startup-test.yml"
+
+jobs:
+  package:
+    name: Windows test installer
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Clean build outputs
+        shell: bash
+        run: rm -rf dist dist-server release
+
+      - name: Build Windows installer
+        run: pnpm package:win
+
+      - name: Verify bundled browser
+        run: node scripts/smoke-browser-bundle.mjs --resources "${{ github.workspace }}/release/win-unpacked/resources"
+
+      - name: Verify packaged server
+        env:
+          OMB_SMOKE_DIST: ${{ github.workspace }}/release/win-unpacked/resources/server
+        run: node scripts/smoke-packaged-server.mjs --browser-bundle "${{ github.workspace }}/release/win-unpacked/resources/browser-engine"
+
+      - name: Show built files
+        shell: bash
+        run: |
+          echo "commit: $(git rev-parse HEAD)"
+          ls -lh release/*.exe release/*.yml 2>/dev/null || true
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-startup-test-installer
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
+          retention-days: 7
