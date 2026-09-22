@@ -42,14 +42,14 @@ jobs:
           # OPENROUTER_URL. Command Code exposes an OpenAI-compatible endpoint.
           OPENROUTER_URL: https://api.commandcode.ai/provider/v1/chat/completions
         with:
-          # Store the Command Code API key in the repository Actions secret
-          # named COMMAND_CODE_API_KEY. Never commit the key itself.
           openrouter_api_key: ${{ secrets.COMMAND_CODE_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           review_model: deepseek/deepseek-v4.1-flash
           verification_model: deepseek/deepseek-v4.1-flash
           max_concurrency: "4"
-          # PRBot v1.0.2 sends file-level review comments with a payload that
-          # GitHub currently rejects. Keep summary/check reporting enabled while
-          # disabling only inline comments until an upstream release fixes it.
+          # DeepSeek returns a direct JSON review more reliably through the
+          # legacy PRBot engine than the contextual tool-calling engine.
+          engine: legacy
+          # Keep inline comments disabled until PRBot fixes its file-level
+          # review payload for the current GitHub API.
           max_comments: "0"
