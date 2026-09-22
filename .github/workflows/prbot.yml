@@ -14,12 +14,29 @@ permissions:
 
 jobs:
   review:
-    if: ${{ github.event_name == 'pull_request' || (github.event.issue.pull_request && github.event.sender.type != 'Bot') }}
+    if: >-
+      ${{
+        github.event_name == 'pull_request' ||
+        (
+          github.event.issue.pull_request &&
+          github.event.sender.type != 'Bot' &&
+          (
+            github.event.comment.body == '/prbot' ||
+            startsWith(github.event.comment.body, '/prbot ')
+          ) &&
+          (
+            github.event.comment.author_association == 'OWNER' ||
+            github.event.comment.author_association == 'MEMBER' ||
+            github.event.comment.author_association == 'COLLABORATOR'
+          )
+        )
+      }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Run PRBot with Command Code
-        uses: jaibhasin/PRBot@v1.0.2
+        # Pin the third-party action to the immutable v1.0.2 commit.
+        uses: jaibhasin/PRBot@673966db4d0433932b9f10500caea3e7175ff6b1
         env:
           # PRBot supports overriding its OpenRouter-compatible endpoint through
           # OPENROUTER_URL. Command Code exposes an OpenAI-compatible endpoint.
@@ -32,3 +49,7 @@ jobs:
           review_model: xiaomi/mimo-v2.6-pro
           verification_model: xiaomi/mimo-v2.6-pro
           max_concurrency: "4"
+          # PRBot v1.0.2 sends file-level review comments with a payload that
+          # GitHub currently rejects. Keep summary/check reporting enabled while
+          # disabling only inline comments until an upstream release fixes it.
+          max_comments: "0"
