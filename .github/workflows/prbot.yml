@@ -46,8 +46,8 @@ jobs:
           # named COMMAND_CODE_API_KEY. Never commit the key itself.
           openrouter_api_key: ${{ secrets.COMMAND_CODE_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          review_model: xiaomi/mimo-v2.6-pro
-          verification_model: xiaomi/mimo-v2.6-pro
+          review_model: deepseek/deepseek-v4.1-flash
+          verification_model: deepseek/deepseek-v4.1-flash
           max_concurrency: "4"
           # PRBot v1.0.2 sends file-level review comments with a payload that
           # GitHub currently rejects. Keep summary/check reporting enabled while
