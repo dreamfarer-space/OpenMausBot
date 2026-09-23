@@ -499,6 +499,8 @@
 
     <string name="mobile_open_task_a1f1752a">Open task</string>
 
+    <string name="mobile_open_thread">Open thread</string>
+
     <string name="mobile_opening_b1b8530b">Opening…</string>
 
     <string name="mobile_past_run_receipts_remain_available_fd5e2bbd">Past run receipts remain available.</string>
@@ -726,6 +728,7 @@
     <string name="mobile_routine_every_minutes">Every %1$d min</string>
     <string name="mobile_routine_interval_with_start">%1$s · starting %2$s</string>
     <string name="mobile_routine_daily_at">%1$s at %2$s</string>
+    <string name="mobile_timeout_minutes_limit">%1$s min limit</string>
     <string name="mobile_routine_subtitle">%1$s · %2$s · %3$s</string>
     <string name="mobile_routine_run_subtitle">%1$s · %2$s</string>
     <string name="mobile_routine_interval_unavailable">Interval unavailable</string>

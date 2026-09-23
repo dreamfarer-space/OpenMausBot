@@ -443,7 +443,7 @@ private fun SettingsRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth()) {
         Text(localizedMobileCopy(label), fontSize = 15.sp, color = secondaryTint)
         Text(
-            text = localizedMobileCopy(value),
+            text = value,
             fontSize = 15.sp,
             textAlign = TextAlign.End,
             modifier = Modifier

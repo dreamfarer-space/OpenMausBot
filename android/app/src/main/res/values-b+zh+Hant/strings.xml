@@ -407,7 +407,7 @@
     <string name="mobile_section_at_limit">已選取 100 個，已達區段上限。</string>
     <string name="mobile_section_under_limit">一個區段最多可選取 100 個機器人。</string>
 
-    <string name="mobile_all_quiet_889fd4f7">全部靜音</string>
+    <string name="mobile_all_quiet_889fd4f7">目前沒有待處理事項</string>
 
     <string name="mobile_apply_model_474897c3">套用模型</string>
 
@@ -498,6 +498,8 @@
     <string name="mobile_open_live_cloud_desktop_f2746abf">要開啟即時雲端桌面嗎？</string>
 
     <string name="mobile_open_task_a1f1752a">開啟任務</string>
+
+    <string name="mobile_open_thread">開啟討論串</string>
 
     <string name="mobile_opening_b1b8530b">開啟中…</string>
 
@@ -726,6 +728,7 @@
     <string name="mobile_routine_every_minutes">每 %1$d 分鐘</string>
     <string name="mobile_routine_interval_with_start">%1$s · 從 %2$s 開始</string>
     <string name="mobile_routine_daily_at">%1$s · %2$s</string>
+    <string name="mobile_timeout_minutes_limit">%1$s 分鐘上限</string>
     <string name="mobile_routine_subtitle">%1$s · %2$s · %3$s</string>
     <string name="mobile_routine_run_subtitle">%1$s · %2$s</string>
     <string name="mobile_routine_interval_unavailable">間隔無法使用</string>

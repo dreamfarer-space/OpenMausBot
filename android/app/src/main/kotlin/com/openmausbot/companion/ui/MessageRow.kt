@@ -888,7 +888,10 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
                     }
                     SelectionContainer {
                         Text(
-                            stringResource(R.string.mobile_source_skill_source_unknown_6370895d, skill.source ?: "Unknown"),
+                            stringResource(
+                                R.string.mobile_source_skill_source_unknown_6370895d,
+                                skill.source ?: stringResource(R.string.mobile_unknown_bc7819b3),
+                            ),
                             fontSize = 11.sp,
                             color = secondaryTint,
                         )

@@ -516,7 +516,9 @@ internal fun RoutineEditorSheet(
                     value = if (advancedExpanded) {
                         "Hide"
                     } else {
-                        timeoutMinutes?.let { "$it min limit" } ?: "No limit"
+                        timeoutMinutes?.let {
+                            stringResource(R.string.mobile_timeout_minutes_limit, it)
+                        } ?: stringResource(R.string.mobile_no_limit_10850b93)
                     },
                     onClick = { advancedExpanded = !advancedExpanded },
                 )
@@ -700,7 +702,9 @@ private fun TimeoutPicker(value: Int?, onSelect: (Int?) -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         OutlinedTextField(
-            value = value?.let { "$it minutes" } ?: "No limit",
+            value = value?.let {
+                stringResource(R.string.mobile_minutes_minutes_29dd88a9, it)
+            } ?: stringResource(R.string.mobile_no_limit_10850b93),
             onValueChange = {},
             readOnly = true,
             label = { Text(stringResource(R.string.mobile_stop_if_still_running_after_45efb175)) },

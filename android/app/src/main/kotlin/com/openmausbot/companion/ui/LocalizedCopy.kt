@@ -321,6 +321,7 @@ private val localizedCopyResources = mapOf(
     "Open notification settings" to R.string.mobile_settings_open_notification_settings,
     "Open Settings" to R.string.mobile_open_settings_134635e9,
     "Open task" to R.string.mobile_open_task_a1f1752a,
+    "Open thread" to R.string.mobile_open_thread,
     "Open the chat to review SKILL.md" to R.string.mobile_open_the_chat_to_review_skill_md_6225775b,
     "Open the OpenMausBot app once after updating. If this phone still isn't connected, pair it before sharing." to R.string.mobile_share_not_paired,
     "Open updates" to R.string.mobile_open_updates_2c80d633,
