@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mobile_diff_show_first_lines">顯示前 %1$d 行</string>
+    <string name="mobile_diff_show_all_lines">顯示全部 %1$d 行</string>
+    <string name="mobile_steps_count">%1$d 個步驟</string>
+    <string name="mobile_camera_unavailable">此手機無法啟動相機。請使用手機上的相機 App 讀取 QR Code，或手動輸入位址與代碼。</string>
+</resources>

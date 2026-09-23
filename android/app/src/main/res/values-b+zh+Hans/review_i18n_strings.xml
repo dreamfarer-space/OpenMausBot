@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mobile_diff_show_first_lines">显示前 %1$d 行</string>
+    <string name="mobile_diff_show_all_lines">显示全部 %1$d 行</string>
+    <string name="mobile_steps_count">%1$d 个步骤</string>
+    <string name="mobile_camera_unavailable">此手机无法启动相机。请使用手机上的相机应用读取二维码，或手动输入地址和代码。</string>
+</resources>

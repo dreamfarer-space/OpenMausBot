@@ -121,6 +121,7 @@ private fun ScannerSurface(
     onCameraFailure: (String) -> Unit,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraUnavailable = stringResource(R.string.mobile_camera_unavailable)
     // A camera reports the same QR on many consecutive frames. One payload is
     // latched at a time; a rejected one re-arms after the message has had time
     // to be read.
@@ -182,10 +183,10 @@ private fun ScannerSurface(
                                     Log.w("PairingScanner", "could not bind the camera", error)
                                 },
                             )
-                            if (!started) onCameraFailure(CAMERA_UNAVAILABLE)
+                            if (!started) onCameraFailure(cameraUnavailable)
                         } catch (error: Exception) {
                             Log.w("PairingScanner", "camera unavailable", error)
-                            onCameraFailure(CAMERA_UNAVAILABLE)
+                            onCameraFailure(cameraUnavailable)
                         }
                     },
                     ContextCompat.getMainExecutor(viewContext),
@@ -270,11 +271,6 @@ internal fun <A> CameraLifecycle.startAnalyzing(
         false
     }
 }
-
-private const val CAMERA_UNAVAILABLE =
-    "This phone's camera could not be started. Use its Camera app to read the QR code, " +
-        "or enter the address and code by hand."
-
 
 private fun bindCamera(
     provider: ProcessCameraProvider,

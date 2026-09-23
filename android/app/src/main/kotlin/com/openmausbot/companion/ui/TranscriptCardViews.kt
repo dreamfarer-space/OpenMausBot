@@ -184,9 +184,15 @@ fun DiffCard(card: TranscriptCard.Diff, modifier: Modifier = Modifier) {
 
                 if (card.isTruncated) {
                     val label = if (showingAll) {
-                        "Show first ${TranscriptCard.Diff.PREVIEW_LINES} lines"
+                        stringResource(
+                            R.string.mobile_diff_show_first_lines,
+                            TranscriptCard.Diff.PREVIEW_LINES,
+                        )
                     } else {
-                        "Show all ${card.lines.size} lines"
+                        stringResource(
+                            R.string.mobile_diff_show_all_lines,
+                            card.lines.size,
+                        )
                     }
                     TextButton(
                         onClick = {
@@ -522,7 +528,11 @@ fun ThoughtChamber(
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = if (steps.size == 1) stringResource(R.string.mobile_step_29869c51) else "${steps.size} steps",
+                text = if (steps.size == 1) {
+                    stringResource(R.string.mobile_step_29869c51)
+                } else {
+                    stringResource(R.string.mobile_steps_count, steps.size)
+                },
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
                 color = secondaryTint,

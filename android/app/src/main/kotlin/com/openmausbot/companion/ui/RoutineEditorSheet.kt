@@ -745,7 +745,8 @@ private fun AgentPicker(
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val label = bots.firstOrNull { it.id == selected }?.name ?: "Choose an agent"
+    val label = bots.firstOrNull { it.id == selected }?.name
+        ?: stringResource(R.string.mobile_choose_an_agent_faaaf2b4)
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
