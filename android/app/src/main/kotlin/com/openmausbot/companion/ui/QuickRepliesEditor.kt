@@ -1,5 +1,7 @@
 package com.openmausbot.companion.ui
 
+import com.openmausbot.companion.R
+
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.horizontalScroll

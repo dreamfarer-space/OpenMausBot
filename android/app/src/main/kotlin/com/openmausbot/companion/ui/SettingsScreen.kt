@@ -89,6 +89,7 @@ fun SettingsScreen(
     var editingAddress by remember { mutableStateOf(false) }
     var addressText by remember { mutableStateOf("") }
     var addressError by remember { mutableStateOf<String?>(null) }
+    val invalidAddressMessage = stringResource(R.string.mobile_settings_invalid_address)
     var showingFullAddress by remember { mutableStateOf(false) }
     var addressCopied by remember { mutableStateOf(false) }
     var reconnecting by remember { mutableStateOf(false) }
@@ -308,7 +309,7 @@ fun SettingsScreen(
                         if (session.updateAddress(addressText)) {
                             editingAddress = false
                         } else {
-                            addressError = stringResource(R.string.mobile_settings_invalid_address)
+                            addressError = invalidAddressMessage
                         }
                     },
                 ) { Text(stringResource(R.string.mobile_save_efc007a3)) }
@@ -322,7 +323,7 @@ fun SettingsScreen(
     if (confirmingUnpair) {
         AlertDialog(
             onDismissRequest = { confirmingUnpair = false },
-            title = { Text(if (connections.size > 1) stringResource(R.string.mobile_remove_connection_name_e686927b, connection?.name) else stringResource(R.string.mobile_settings_unpair_confirm_title)) },
+            title = { Text(if (connections.size > 1) stringResource(R.string.mobile_remove_connection_name_e686927b, connection?.name.orEmpty()) else stringResource(R.string.mobile_settings_unpair_confirm_title)) },
             text = {
                 Text(
                     if (connections.size > 1) {
