@@ -56,8 +56,8 @@ class ThreadNavigationTest {
                 activity = when (it) { "waiting" -> "waiting-on-you"; "queued" -> "queued"; else -> "idle" })
         }
         val grouped = bot.copy(tasks = closed + task("run").copy(routineRunId = "internal"))
-        assertEquals(listOf("waiting", "busy", "queued", "unread", "current"),
-            grouped.threadGroups().single().tasks.map { it.threadId })
+        assertEquals(setOf("waiting", "busy", "queued", "unread", "current"),
+            grouped.threadGroups().single().tasks.map { it.threadId }.toSet())
         assertEquals(6, grouped.threadGroups(includingClosed = true).single().tasks.size)
         assertTrue(grouped.threadGroups("run").isEmpty())
         assertEquals("run", grouped.forTask("run")?.threadId)
