@@ -8,6 +8,7 @@ import com.openmausbot.companion.core.isClosed
 import com.openmausbot.companion.core.isArchived
 import com.openmausbot.companion.core.displayTitle
 import com.openmausbot.companion.core.listedThreads
+import com.openmausbot.companion.core.orderedThreads
 import com.openmausbot.companion.core.threadGroups
 
 /**
@@ -54,7 +55,7 @@ object TaskRules {
         }
         val (closed, archived) = folded.partition { !it.isArchived }
         return listedThreads(pinned) +
-            listedThreads(surfaced) +
+            orderedThreads(surfaced, bot.threadId, queuedThreadIds) +
             listedThreads(closed) +
             listedThreads(archived)
     }
