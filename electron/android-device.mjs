@@ -6,7 +6,8 @@ import { promisify } from "node:util";
 import localOriginModule from "./local-origin.cjs";
 
 const execFileAsync = promisify(execFile);
-const STATUS_TTL_MS = 750;
+const CONNECTED_STATUS_TTL_MS = 2_000;
+const IDLE_STATUS_TTL_MS = 8_000;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const KEYCODES = new Map([
@@ -118,13 +119,18 @@ export function createAndroidDeviceController(options = {}) {
       timeout: extra.timeout ?? 6_000,
       maxBuffer: extra.maxBuffer ?? 32 * 1024 * 1024,
       encoding: extra.encoding ?? "utf8",
+      // adb.exe is a console application. Without this, every discovery /
+      // screenshot/input probe can flash a console from the windowless
+      // Electron process on Windows.
+      windowsHide: true,
       env: { ...process.env, ADB_TRACE: "" },
     });
     return result;
   };
 
   const status = async ({ fresh = false } = {}) => {
-    if (!fresh && cachedStatus && Date.now() - cachedStatus.at < STATUS_TTL_MS) {
+    const ttl = cachedStatus?.value?.devices?.length ? CONNECTED_STATUS_TTL_MS : IDLE_STATUS_TTL_MS;
+    if (!fresh && cachedStatus && Date.now() - cachedStatus.at < ttl) {
       return cachedStatus.value;
     }
     const binary = resolveBinary();
@@ -241,7 +247,10 @@ export function createAndroidDeviceController(options = {}) {
       }
       return handler(...args);
     };
-    ipcMain.handle("android-device:status", protect(() => status({ fresh: true })));
+    // The renderer polls while the page is visible. Reuse recent discovery
+    // results here; frame/input paths still force a fresh device check before
+    // doing anything physical.
+    ipcMain.handle("android-device:status", protect(() => status()));
     ipcMain.handle("android-device:frame", protect(frame));
     ipcMain.handle("android-device:input", protect(input));
   };
