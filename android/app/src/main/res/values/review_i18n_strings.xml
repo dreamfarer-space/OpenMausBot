@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mobile_diff_show_first_lines">Show first %1$d lines</string>
+    <string name="mobile_diff_show_all_lines">Show all %1$d lines</string>
+    <string name="mobile_steps_count">%1$d steps</string>
+    <string name="mobile_camera_unavailable">This phone\'s camera could not be started. Use its Camera app to read the QR code, or enter the address and code by hand.</string>
+</resources>
