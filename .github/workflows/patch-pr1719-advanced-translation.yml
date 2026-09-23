@@ -1,0 +1,32 @@
+name: Patch PR 1719 advanced translation
+
+on:
+  push:
+    branches:
+      - feat/chinese-localization-upstream
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/chinese-localization-upstream
+          fetch-depth: 0
+      - name: Fix Advanced translations and self-clean
+        shell: bash
+        run: |
+          sed -i 's/"engines.account.advanced": "高端"/"engines.account.advanced": "高级"/' src/locales/zh.json
+          sed -i 's/"settings.domain.guide": "高端服务器设置"/"settings.domain.guide": "高级服务器设置"/' src/locales/zh.json
+          sed -i 's/"organization.advanced": "高端"/"organization.advanced": "高级"/' src/locales/zh.json
+          python3 -m json.tool src/locales/zh.json >/dev/null
+          git diff --check
+          rm .github/workflows/patch-pr1719-advanced-translation.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/locales/zh.json .github/workflows/patch-pr1719-advanced-translation.yml
+          git commit -m "fix(i18n): use accurate Advanced terminology in Chinese"
+          git push origin HEAD:feat/chinese-localization-upstream
