@@ -222,7 +222,7 @@ internal fun UpdatesSheet(onOpen: (Chat) -> Unit, onDismiss: () -> Unit) {
             sections.forEach { (kind, items) ->
                 item(key = "section-$kind") {
                     Text(
-                        text = localizedMobileCopy(UpdatesSummary.sectionLabel(kind)),
+                        text = localizedMobileCopy(UpdatesSummary.section(kind)).uppercase(),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp,
