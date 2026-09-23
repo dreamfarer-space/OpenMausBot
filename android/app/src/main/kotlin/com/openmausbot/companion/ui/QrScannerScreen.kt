@@ -1,5 +1,7 @@
 package com.openmausbot.companion.ui
 
+import androidx.compose.ui.res.stringResource
+
 import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
@@ -72,10 +74,10 @@ fun QrScannerScreen(onCancel: () -> Unit, validate: (String) -> String?) {
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)) {
             TextButton(onClick = onCancel, modifier = Modifier.align(Alignment.CenterStart)) {
-                Text("Cancel")
+                Text(stringResource(R.string.mobile_cancel_77dfd213))
             }
             Text(
-                text = "Scan QR Code",
+                text = stringResource(R.string.mobile_scan_qr_code_04e3f103),
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.align(Alignment.Center),
             )
@@ -83,21 +85,20 @@ fun QrScannerScreen(onCancel: () -> Unit, validate: (String) -> String?) {
 
         when {
             cameraFailure != null -> EmptyState(
-                title = "Scanner unavailable",
+                title = stringResource(R.string.mobile_scanner_unavailable_cc42e33b),
                 description = cameraFailure!!,
             )
 
             access == CameraAccess.UNKNOWN -> EmptyState(
-                title = "Requesting camera access…",
-                description = "Allow camera access to scan the pairing QR code shown by OpenMausBot.",
+                title = stringResource(R.string.mobile_requesting_camera_access_30e104c0),
+                description = stringResource(R.string.mobile_camera_permission_description),
             )
 
             access == CameraAccess.DENIED -> EmptyState(
-                title = "Camera access needed",
-                description = "Allow camera access to scan the pairing QR code shown by " +
-                    "OpenMausBot, or go back and enter the address and code by hand.",
+                title = stringResource(R.string.mobile_camera_access_needed_28a22fc4),
+                description = stringResource(R.string.mobile_camera_permission_denied),
             ) {
-                Button(onClick = environment.openAppSettings) { Text("Open Settings") }
+                Button(onClick = environment.openAppSettings) { Text(stringResource(R.string.mobile_open_settings_134635e9)) }
             }
 
             else -> ScannerSurface(
@@ -192,7 +193,7 @@ private fun ScannerSurface(
         )
 
         Text(
-            text = validationError ?: "Point the camera at the QR code on your computer",
+            text = validationError ?: stringResource(R.string.mobile_point_the_camera_at_the_qr_code_on_77e56351),
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
