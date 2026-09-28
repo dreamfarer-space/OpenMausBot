@@ -15,7 +15,7 @@
 // exception: fenced blocks and inline spans pin dir="ltr" and isolate
 // themselves, so a snippet never reorders and never scrambles the RTL
 // sentence holding it.
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -75,7 +75,6 @@ const absolutePath = (value: string): string | null => {
   return null;
 };
 
-/** Resolve supported local file references, rejecting web URLs and unsafe file URLs. */
 export const localFilePath = (href?: string): string | null => {
   if (!href) return null;
   // URL schemes are case-insensitive, so FILE:// is as valid as file://
@@ -634,7 +633,6 @@ function LocalFileLink({ filePath, children, message }: { filePath: string; chil
   );
 }
 
-/** Choose an accessible image name from alt text, the source filename, or a fallback. */
 export function markdownImageName(src: string, alt?: string): string {
   const supplied = alt?.trim();
   if (supplied) return supplied;
@@ -648,7 +646,6 @@ export function markdownImageName(src: string, alt?: string): string {
   return "Image";
 }
 
-/** Return an HTTP(S) image destination suitable for opening in an external browser. */
 export function markdownImageOpenUrl(src: string): string | undefined {
   try {
     const url = new URL(src.startsWith("//") ? `https:${src}` : src);
@@ -716,7 +713,7 @@ function protectFencedCode(text: string, protect: (value: string) => string): st
 
   while ((match = opener.exec(text)) !== null) {
     const fence = match[3] ?? match[5];
-    const fenceCharacter = fence[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const fenceCharacter = fence[0];
     const closer = new RegExp(
       `(^|\\r?\\n)(?: {0,3}>[ \\t]?)* {0,3}${fenceCharacter}{${fence.length},}[ \\t]*(?=\\r?\\n|$)`,
       "g",
@@ -737,13 +734,9 @@ function protectFencedCode(text: string, protect: (value: string) => string): st
 
 /** Convert the TeX delimiters models commonly emit into remark-math syntax.
  * Fenced and inline code are protected so examples such as `\\(x\\)` remain
- * literal. Unmatched delimiters are left untouched while a response streams.
- * NULs become replacement characters before tokenization, matching CommonMark
- * preprocessing without shifting source offsets used by image attachments. */
-export function normalizeMathDelimiters(text: string, preserveInlineBreaks = false): string {
-  text = text.replace(/\u0000/g, "\uFFFD");
+ * literal. Unmatched delimiters are left untouched while a response streams. */
+export function normalizeMathDelimiters(text: string): string {
   const protectedCode: string[] = [];
-  /** Save a code fragment behind a token that sanitized input cannot contain. */
   const protect = (value: string): string => {
     const token = `\u0000OMB_CODE_${protectedCode.length}\u0000`;
     protectedCode.push(value);
@@ -751,41 +744,16 @@ export function normalizeMathDelimiters(text: string, preserveInlineBreaks = fal
   };
   const tokenized = protectFencedCode(text, protect)
     .replace(/(`+)[\s\S]*?\1/g, protect);
-  // remark-math runs with singleDollarTextMath off (so "$5 and $10" stays
-  // text), so inline TeX is emitted as $$…$$. The compact-$$ rewrite runs
-  // first so it cannot promote that inline output to a display block.
   let normalized = tokenized
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_match, math: string) => `$$\n${math}\n$$`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_match, math: string) => `$${math}$`)
     // remark-math treats flow math as a block only when the fences occupy
     // their own lines; accept the compact form models commonly produce.
-    .replace(/\$\$[ \t]*([^\n][\s\S]*?)[ \t]*\$\$/g, (_match, math: string) => `$$\n${math}\n$$`)
-    .replace(/\\\[([\s\S]*?)\\\]/g, (_match, math: string) => `$$\n${math}\n$$`)
-    // Inline line breaks must not open flow math; preserve source offsets.
-    .replace(/\\\(([\s\S]*?)\\\)/g, (_match, math: string) => `$$${preserveInlineBreaks ? math : math.replace(/[\r\n]/g, " ")}$$`);
+    .replace(/\$\$[ \t]*([^\n][\s\S]*?)[ \t]*\$\$/g, (_match, math: string) => `$$\n${math}\n$$`);
   protectedCode.forEach((value, index) => {
     normalized = normalized.split(`\u0000OMB_CODE_${index}\u0000`).join(value);
   });
   return normalized;
-}
-
-/** Restore TeX newlines (including comment endings) after Markdown parsing. */
-function remarkInlineMathSource(source: string) {
-  return () => (tree: { children?: any[] }) => {
-    const visit = (node: any, quoteDepth = 0) => {
-      if (node.type === "blockquote") quoteDepth++;
-      if (node.type === "inlineMath" && node.position) {
-        const raw = source.slice(node.position.start.offset, node.position.end.offset);
-        const fenceLength = /^\$+/.exec(raw)?.[0].length ?? 0;
-        if (fenceLength) {
-          node.value = raw.slice(fenceLength, -fenceLength);
-          // Source slices still include the enclosing Markdown quote markers.
-          if (quoteDepth) node.value = node.value.replace(new RegExp(`(\\r\\n?|\\n)(?: {0,3}>[ \\t]?){1,${quoteDepth}}`, "g"), "$1");
-          node.data.hChildren = [{ type: "text", value: node.value }];
-        }
-      }
-      node.children?.forEach((child: any) => visit(child, quoteDepth));
-    };
-    visit(tree);
-  };
 }
 
 /** Render message Markdown with math, protected code, scoped attachments, and mentions. */
@@ -799,19 +767,13 @@ function ChatMarkdownComponent({ text, streaming = false, message, mentionPeers 
   // A near-miss table from a model renders as an unreadable run of pipes
   // unless it is repaired before parsing. Table repair moves image source
   // offsets, so image messages skip that repair but still normalize math.
-  // Context/stream-status changes can re-render identical text. Cache only this
-  // snapshot; closing a math delimiter must still update the rendered layout.
-  const { source, mathSource } = useMemo(() => {
-    const markdown = text.includes(MARKDOWN_IMAGE) ? text : repairMarkdownTables(text);
-    return {
-      source: normalizeMathDelimiters(markdown),
-      mathSource: normalizeMathDelimiters(markdown, true),
-    };
-  }, [text]);
+  const source = normalizeMathDelimiters(text.includes(MARKDOWN_IMAGE)
+    ? text
+    : repairMarkdownTables(text));
   return (
     <div className="chat-md min-w-0 [&>*+*]:mt-2">
       <Markdown
-        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkInlineMathSource(mathSource), remarkWindowsPathDestinations, unwrapLinkedImages, [remarkMentions, { peers: mentionPeers, everyone }], remarkThreadRefs(threads, currentBotId)]}
+        remarkPlugins={[remarkGfm, remarkMath, remarkWindowsPathDestinations, unwrapLinkedImages, [remarkMentions, { peers: mentionPeers, everyone }], remarkThreadRefs(threads, currentBotId)]}
         rehypePlugins={[rehypeKatex]}
         urlTransform={chatUrlTransform}
         components={{
@@ -968,7 +930,6 @@ export function samePeers(previous: readonly MentionPeer[], next: readonly Menti
   });
 }
 
-/** Memoized chat renderer that skips updates when all render-relevant props match. */
 export const ChatMarkdown = memo(ChatMarkdownComponent, (previous, next) => (
   previous.text === next.text
   && samePeers(previous.mentionPeers ?? NO_MENTION_PEERS, next.mentionPeers ?? NO_MENTION_PEERS)
