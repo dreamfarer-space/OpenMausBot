@@ -1,0 +1,37 @@
+name: Verify chat math follow-up
+on:
+  push:
+    branches: [verify/chat-math-review-followup]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify one KaTeX version
+        run: |
+          pnpm why katex
+          node --input-type=module -e "import {readdirSync} from 'node:fs'; import assert from 'node:assert/strict'; assert.deepEqual(readdirSync('node_modules/.pnpm').filter(x=>/^katex@/.test(x)), ['katex@0.16.47']);"
+      - run: pnpm exec vitest run src/components/ChatMarkdown.test.ts src/lib/markdown-tables.test.ts
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm i18n:check
+      - run: pnpm exec vite build
+      - name: Isolated browser math verification
+        env:
+          OMB_UI_E2E: "1"
+        run: pnpm exec vitest run scripts/testing/math-followup.e2e.test.ts
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: chat-math-browser-evidence
+          path: .omb-scratch/verify-evidence
+          if-no-files-found: ignore
