@@ -735,7 +735,7 @@ function protectFencedCode(text: string, protect: (value: string) => string): st
 /** Convert the TeX delimiters models commonly emit into remark-math syntax.
  * Fenced and inline code are protected so examples such as `\\(x\\)` remain
  * literal. Unmatched delimiters are left untouched while a response streams. */
-export function normalizeMathDelimiters(text: string): string {
+export function normalizeMathDelimiters(text: string, preserveInlineBreaks = false): string {
   const protectedCode: string[] = [];
   const protect = (value: string): string => {
     const token = `\u0000OMB_CODE_${protectedCode.length}\u0000`;
@@ -752,11 +752,30 @@ export function normalizeMathDelimiters(text: string): string {
     // their own lines; accept the compact form models commonly produce.
     .replace(/\$\$[ \t]*([^\n][\s\S]*?)[ \t]*\$\$/g, (_match, math: string) => `$$\n${math}\n$$`)
     .replace(/\\\[([\s\S]*?)\\\]/g, (_match, math: string) => `$$\n${math}\n$$`)
-    .replace(/\\\(([\s\S]*?)\\\)/g, (_match, math: string) => `$$${math}$$`);
+    // Inline line breaks must not open flow math; preserve source offsets.
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_match, math: string) => `$$${preserveInlineBreaks ? math : math.replace(/[\r\n]/g, " ")}$$`);
   protectedCode.forEach((value, index) => {
     normalized = normalized.split(`\u0000OMB_CODE_${index}\u0000`).join(value);
   });
   return normalized;
+}
+
+/** Restore TeX newlines (including comment endings) after Markdown parsing. */
+function remarkInlineMathSource(source: string) {
+  return () => (tree: { children?: any[] }) => {
+    const visit = (node: any) => {
+      if (node.type === "inlineMath" && node.position) {
+        const raw = source.slice(node.position.start.offset, node.position.end.offset);
+        const fenceLength = /^\$+/.exec(raw)?.[0].length ?? 0;
+        if (fenceLength) {
+          node.value = raw.slice(fenceLength, -fenceLength);
+          node.data.hChildren = [{ type: "text", value: node.value }];
+        }
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
 }
 
 function ChatMarkdownComponent({ text, streaming = false, message, mentionPeers = NO_MENTION_PEERS, everyone = false }: {
@@ -769,13 +788,15 @@ function ChatMarkdownComponent({ text, streaming = false, message, mentionPeers 
   // A near-miss table from a model renders as an unreadable run of pipes
   // unless it is repaired before parsing. Table repair moves image source
   // offsets, so image messages skip that repair but still normalize math.
-  const source = normalizeMathDelimiters(text.includes(MARKDOWN_IMAGE)
+  const markdown = text.includes(MARKDOWN_IMAGE)
     ? text
-    : repairMarkdownTables(text));
+    : repairMarkdownTables(text);
+  const source = normalizeMathDelimiters(markdown);
+  const mathSource = normalizeMathDelimiters(markdown, true);
   return (
     <div className="chat-md min-w-0 [&>*+*]:mt-2">
       <Markdown
-        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkWindowsPathDestinations, unwrapLinkedImages, [remarkMentions, { peers: mentionPeers, everyone }], remarkThreadRefs(threads, currentBotId)]}
+        remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkInlineMathSource(mathSource), remarkWindowsPathDestinations, unwrapLinkedImages, [remarkMentions, { peers: mentionPeers, everyone }], remarkThreadRefs(threads, currentBotId)]}
         rehypePlugins={[rehypeKatex]}
         urlTransform={chatUrlTransform}
         components={{

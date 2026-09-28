@@ -80,6 +80,42 @@ describe("math rendering", () => {
     expect(html).not.toContain("katex-display");
   });
 
+  it.each(["", "\n", "\r\n", " \t\n \r\n"])("keeps multiline inline math with prefix %j from opening a block", (leading) => {
+    const text = `\\(${leading}x\n+y\\)\n\nAfter`;
+    // Replacing line breaks must not shift downstream attachment source offsets.
+    expect(normalizeMathDelimiters(text)).toHaveLength(text.length);
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
+    expect(html.match(/class="katex"/g)).toHaveLength(1);
+    expect(html).not.toContain("katex-display");
+    expect(html).not.toContain("katex-error");
+    expect(html).toContain("<mi>x</mi><mo>+</mo><mi>y</mi>");
+    expect(html).toContain('<p dir="ltr">After</p>');
+  });
+
+  it("preserves inline TeX comments and display math around normalized line breaks", () => {
+    const text = "$$z^2$$\n\n\\(x % comment\r\n+y\\)\n\nAfter";
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
+    expect(html.match(/class="katex"/g)).toHaveLength(2);
+    expect(html.match(/class="katex-display"/g)).toHaveLength(1);
+    expect(html).not.toContain("katex-error");
+    expect(html).toContain("<mi>x</mi><mo>+</mo><mi>y</mi>");
+    expect(html).toContain('<annotation encoding="application/x-tex">z^2</annotation>');
+    expect(html).toContain('<p dir="ltr">After</p>');
+  });
+
+  it("keeps image source offsets after multiline inline math", () => {
+    const text = "\\(\r\nx+y\\)\n\n![diagram](/workspace/diagram.png)";
+    const preview = vi.spyOn(AttachmentPreview, "MarkdownImagePreview");
+    try {
+      renderToStaticMarkup(createElement(ChatMarkdown, {
+        text, message: { threadId: "thread-1", messageId: "message-1" },
+      }));
+      expect(preview.mock.calls[0][0].sourceOffset).toBe(text.indexOf("!["));
+    } finally {
+      preview.mockRestore();
+    }
+  });
+
   it("keeps code dollar signs and malformed TeX delimiters literal", () => {
     const text = "`const price = '$5'`\n\n```tex\n\\(not rendered\\)\n```\n\nUnclosed \\(x";
     const html = renderToStaticMarkup(createElement(ChatMarkdown, { text, streaming: true }));
