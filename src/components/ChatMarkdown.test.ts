@@ -61,10 +61,68 @@ describe("mention highlighting", () => {
 describe("math rendering", () => {
   it("renders inline, display, and TeX-style delimiters with KaTeX", () => {
     const html = renderToStaticMarkup(createElement(ChatMarkdown, {
-      text: "Inline $s'(t)=2t$.\n\n$$\\int_0^3 2t\\,dt=9$$\n\n\\(x^2\\)\n\n\\[y^2\\]",
+      text: "Inline \\(s'(t)=2t\\).\n\n$$\\int_0^3 2t\\,dt=9$$\n\n\\(x^2\\)\n\n\\[y^2\\]",
     }));
     expect(html.match(/class="katex"/g)?.length).toBeGreaterThanOrEqual(4);
     expect(html).toContain("katex-display");
+  });
+
+  it("keeps multiple currency amounts in one paragraph as plain text", () => {
+    const text = "Jan −$3,000 · Feb −$2,000 · Avg ≈ $2,200 and $5 vs $10";
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
+    expect(html).not.toContain("katex");
+    expect(html).toContain("Jan −$3,000 · Feb −$2,000 · Avg ≈ $2,200 and $5 vs $10");
+  });
+
+  it("renders \\(…\\) as inline math without promoting it to display", () => {
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text: "Inline \\(x^2\\) here" }));
+    expect(html.match(/class="katex"/g)).toHaveLength(1);
+    expect(html).not.toContain("katex-display");
+  });
+
+  it.each(["", "\n", "\r\n", " \t\n \r\n"])("keeps multiline inline math with prefix %j from opening a block", (leading) => {
+    const text = `\\(${leading}x\n+y\\)\n\nAfter`;
+    // Replacing line breaks must not shift downstream attachment source offsets.
+    expect(normalizeMathDelimiters(text)).toHaveLength(text.length);
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
+    expect(html.match(/class="katex"/g)).toHaveLength(1);
+    expect(html).not.toContain("katex-display");
+    expect(html).not.toContain("katex-error");
+    expect(html).toContain("<mi>x</mi><mo>+</mo><mi>y</mi>");
+    expect(html).toContain('<p dir="ltr">After</p>');
+  });
+
+  it("preserves inline TeX comments and display math around normalized line breaks", () => {
+    const text = "$$z^2$$\n\n\\(x % comment\r\n+y\\)\n\nAfter";
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
+    expect(html.match(/class="katex"/g)).toHaveLength(2);
+    expect(html.match(/class="katex-display"/g)).toHaveLength(1);
+    expect(html).not.toContain("katex-error");
+    expect(html).toContain("<mi>x</mi><mo>+</mo><mi>y</mi>");
+    expect(html).toContain('<annotation encoding="application/x-tex">z^2</annotation>');
+    expect(html).toContain('<p dir="ltr">After</p>');
+  });
+
+  it.each(["> ", "> > ", "> - "])("keeps quote continuation markers out of inline math: %s", (prefix) => {
+    const continuation = prefix.replace("- ", "  ");
+    const text = `${prefix}Before \\(x% comment\n${continuation}+y\\)\n\nAfter`;
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
+    expect(html).toContain("<mi>x</mi><mo>+</mo><mi>y</mi>");
+    expect(html).not.toContain("katex-error");
+    expect(html).toContain('<p dir="ltr">After</p>');
+  });
+
+  it("keeps image source offsets after multiline inline math", () => {
+    const text = "\\(\r\nx+y\\)\n\n![diagram](/workspace/diagram.png)";
+    const preview = vi.spyOn(AttachmentPreview, "MarkdownImagePreview");
+    try {
+      renderToStaticMarkup(createElement(ChatMarkdown, {
+        text, message: { threadId: "thread-1", messageId: "message-1" },
+      }));
+      expect(preview.mock.calls[0][0].sourceOffset).toBe(text.indexOf("!["));
+    } finally {
+      preview.mockRestore();
+    }
   });
 
   it("keeps code dollar signs and malformed TeX delimiters literal", () => {
@@ -74,11 +132,66 @@ describe("math rendering", () => {
     expect(normalizeMathDelimiters(text)).toBe(text);
   });
 
+  it("protects consecutive inline code spans without swallowing the math between them", () => {
+    const text = "`\\(a\\)` text \\(x\\) `\\[b\\]` then \\(y\\) `$$c$$`";
+    expect(normalizeMathDelimiters(text)).toBe(
+      "`\\(a\\)` text $$x$$ `\\[b\\]` then $$y$$ `$$c$$`",
+    );
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
+    expect(html.match(/<code\b/g)).toHaveLength(3);
+    expect(html.match(/class="katex"/g)).toHaveLength(2);
+    expect(html).toContain("\\(a\\)");
+    expect(html).toContain("\\[b\\]");
+    expect(html).toContain("$$c$$");
+  });
+
+  it("normalizes compact display math only once the streaming delimiter closes", () => {
+    const snapshots = ["$$", "$$x", "$$x^2", "$$x^2$"];
+    for (const text of snapshots) expect(normalizeMathDelimiters(text)).toBe(text);
+
+    const text = "$$x^2$$";
+    const normalized = "$$\nx^2\n$$";
+    expect(normalizeMathDelimiters(text)).toBe(normalized);
+    expect(normalizeMathDelimiters(normalized)).toBe(normalized);
+    expect(normalizeMathDelimiters(`${text}\n\nAfter`)).toBe(`${normalized}\n\nAfter`);
+    const streaming = renderToStaticMarkup(createElement(ChatMarkdown, { text, streaming: true }));
+    const settled = renderToStaticMarkup(createElement(ChatMarkdown, { text, streaming: false }));
+    expect(streaming).toBe(settled);
+    expect(settled.match(/class="katex-display"/g)).toHaveLength(1);
+    expect(settled).not.toContain("katex-error");
+  });
+
+  it.each([false, true])("neutralizes source NUL tokens before protecting code (preserve breaks: %s)", (preserveInlineBreaks) => {
+    const text = "\u0000OMB_CODE_0\u0000 `\\(a\\) \u0000OMB_CODE_1\u0000` `\\[b\\]` after \\(x\\)";
+    expect(normalizeMathDelimiters(text, preserveInlineBreaks)).toBe(
+      "\uFFFDOMB_CODE_0\uFFFD `\\(a\\) \uFFFDOMB_CODE_1\uFFFD` `\\[b\\]` after $$x$$",
+    );
+    expect(normalizeMathDelimiters("\u0000OMB_CODE_99\u0000", preserveInlineBreaks)).toBe(
+      "\uFFFDOMB_CODE_99\uFFFD",
+    );
+  });
+
+  it("neutralizes NULs in fenced code and preserves downstream image offsets", () => {
+    const text = "```tex\n\u0000OMB_CODE_0\u0000 \\(literal\\)\n```\n\n![diagram](/workspace/diagram.png)";
+    const preview = vi.spyOn(AttachmentPreview, "MarkdownImagePreview");
+    try {
+      expect(normalizeMathDelimiters(text)).toBe(text.replace(/\u0000/g, "\uFFFD"));
+      const html = renderToStaticMarkup(createElement(ChatMarkdown, {
+        text, message: { threadId: "thread-1", messageId: "message-1" },
+      }));
+      expect(html).not.toContain('class="katex"');
+      expect(html).toContain("\uFFFDOMB_CODE_0\uFFFD");
+      expect(preview.mock.calls[0][0].sourceOffset).toBe(text.indexOf("!["));
+    } finally {
+      preview.mockRestore();
+    }
+  });
+
   it("protects fenced code when the closer has different indentation or is longer", () => {
     const text = "  ~~~tex\n\\(not rendered\\)\n ~~~~\n\nAfter \\(rendered\\).";
     const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
     expect(normalizeMathDelimiters(text)).toBe(
-      "  ~~~tex\n\\(not rendered\\)\n ~~~~\n\nAfter $rendered$.",
+      "  ~~~tex\n\\(not rendered\\)\n ~~~~\n\nAfter $$rendered$$.",
     );
     expect(html.match(/class="katex"/g)).toHaveLength(1);
     expect(html).toContain("not rendered");
@@ -86,18 +199,18 @@ describe("math rendering", () => {
 
   it("rejects backticks in a backtick-fence info string", () => {
     const text = "```js `invalid`\n\\(rendered\\)\n```";
-    expect(normalizeMathDelimiters(text)).toBe("```js `invalid`\n$rendered$\n```");
+    expect(normalizeMathDelimiters(text)).toBe("```js `invalid`\n$$rendered$$\n```");
   });
 
   it("protects block-quoted and CRLF fenced code", () => {
     const quoted = "> ```tex\n> \\(not rendered\\)\n> ```\n\nAfter \\(rendered\\).";
     expect(normalizeMathDelimiters(quoted)).toBe(
-      "> ```tex\n> \\(not rendered\\)\n> ```\n\nAfter $rendered$.",
+      "> ```tex\n> \\(not rendered\\)\n> ```\n\nAfter $$rendered$$.",
     );
 
     const crlf = "```tex\r\n\\(not rendered\\)\r\n```\r\n\r\nAfter \\(rendered\\).";
     expect(normalizeMathDelimiters(crlf)).toBe(
-      "```tex\r\n\\(not rendered\\)\r\n```\r\n\r\nAfter $rendered$.",
+      "```tex\r\n\\(not rendered\\)\r\n```\r\n\r\nAfter $$rendered$$.",
     );
   });
 
