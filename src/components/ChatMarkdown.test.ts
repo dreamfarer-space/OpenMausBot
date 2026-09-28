@@ -103,6 +103,15 @@ describe("math rendering", () => {
     expect(html).toContain('<p dir="ltr">After</p>');
   });
 
+  it.each(["> ", "> > ", "> - "])("keeps quote continuation markers out of inline math: %s", (prefix) => {
+    const continuation = prefix.replace("- ", "  ");
+    const text = `${prefix}Before \\(x% comment\n${continuation}+y\\)\n\nAfter`;
+    const html = renderToStaticMarkup(createElement(ChatMarkdown, { text }));
+    expect(html).toContain("<mi>x</mi><mo>+</mo><mi>y</mi>");
+    expect(html).not.toContain("katex-error");
+    expect(html).toContain('<p dir="ltr">After</p>');
+  });
+
   it("keeps image source offsets after multiline inline math", () => {
     const text = "\\(\r\nx+y\\)\n\n![diagram](/workspace/diagram.png)";
     const preview = vi.spyOn(AttachmentPreview, "MarkdownImagePreview");

@@ -763,16 +763,19 @@ export function normalizeMathDelimiters(text: string, preserveInlineBreaks = fal
 /** Restore TeX newlines (including comment endings) after Markdown parsing. */
 function remarkInlineMathSource(source: string) {
   return () => (tree: { children?: any[] }) => {
-    const visit = (node: any) => {
+    const visit = (node: any, quoteDepth = 0) => {
+      if (node.type === "blockquote") quoteDepth++;
       if (node.type === "inlineMath" && node.position) {
         const raw = source.slice(node.position.start.offset, node.position.end.offset);
         const fenceLength = /^\$+/.exec(raw)?.[0].length ?? 0;
         if (fenceLength) {
           node.value = raw.slice(fenceLength, -fenceLength);
+          // Source slices still include the enclosing Markdown quote markers.
+          if (quoteDepth) node.value = node.value.replace(new RegExp(`(\\r\\n?|\\n)(?: {0,3}>[ \\t]?){1,${quoteDepth}}`, "g"), "$1");
           node.data.hChildren = [{ type: "text", value: node.value }];
         }
       }
-      node.children?.forEach(visit);
+      node.children?.forEach((child: any) => visit(child, quoteDepth));
     };
     visit(tree);
   };
