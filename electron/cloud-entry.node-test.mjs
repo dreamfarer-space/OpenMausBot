@@ -5,7 +5,8 @@ import { runInNewContext } from "node:vm";
 import { patchOrganizationUpdater } from "../scripts/patch-organization-updater.mjs";
 import { CLOUD_DEEP_LINK, createCloudEntry, isCloudDeepLink, takeCloudDeepLink } from "./cloud-entry.mjs";
 
-const main = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
+// Windows checkouts can have CRLF line endings; the source checks below match "\n".
+const main = readFileSync(new URL("./main.mjs", import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const between = (start, end) => {
   const from = main.indexOf(start), to = main.indexOf(end, from);
   assert.ok(from !== -1 && to !== -1, `${start} … ${end}`);
