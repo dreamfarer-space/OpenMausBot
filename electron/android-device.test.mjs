@@ -39,6 +39,24 @@ describe("Android USB device bridge", () => {
     expect(checked).toEqual(["/trusted/adb"]);
   });
 
+  it("hides adb console windows and caches idle discovery probes", async () => {
+    const calls = [];
+    const run = async (_binary, args, options) => {
+      calls.push({ args, options });
+      return { stdout: "List of devices attached\n\n", stderr: "" };
+    };
+    const controller = createAndroidDeviceController({ run, resolveBinary: () => "C:\\adb.exe" });
+
+    await expect(controller.status()).resolves.toMatchObject({ available: true, devices: [] });
+    await expect(controller.status()).resolves.toMatchObject({ available: true, devices: [] });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      args: ["devices", "-l"],
+      options: { windowsHide: true },
+    });
+  });
+
   it("captures a validated USB device and maps normalized swipes to ADB pixels", async () => {
     const calls = [];
     const png = Buffer.concat([
@@ -71,6 +89,7 @@ describe("Android USB device bridge", () => {
     expect(calls.at(-1)?.args).toEqual([
       "-s", "USB123", "shell", "input", "swipe", "540", "1920", "540", "480", "240",
     ]);
+    expect(calls.every((call) => call.options.windowsHide === true)).toBe(true);
   });
 
   it("rejects network devices and shell metacharacters", async () => {
