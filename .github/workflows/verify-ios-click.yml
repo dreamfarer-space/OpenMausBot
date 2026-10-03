@@ -1,0 +1,50 @@
+name: Isolated iOS click reproduction
+on:
+  push:
+    branches: ["verify/ios-click-20261004"]
+    paths: [".github/workflows/verify-ios-click.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ios-click:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: milind-soni/OpenMausBot
+          ref: a1103965b6019446bb5cda5052ed40894dfe3989
+          persist-credentials: false
+      - name: Environment
+        run: |
+          git rev-parse HEAD
+          xcodebuild -version
+          sw_vers
+          xcrun simctl list runtimes
+      - name: Focused iOS core tests
+        run: cd ios && swift test --filter 'RemoteGesture|BrowserLive|BrowserInputQueue'
+      - name: Generate native project
+        run: brew install xcodegen && cd ios && xcodegen generate
+      - name: Native button and browser touch reproduction
+        shell: bash
+        run: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          cd ios
+          runtime_id=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["runtimes"] if x.get("isAvailable") and ".iOS-" in x["identifier"]]; r.sort(key=lambda x:tuple(map(int,x["version"].split(".")))); print(r[-1]["identifier"])')
+          device_type=$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["devicetypes"] if x["name"]=="iPhone 16 Pro"]; print(r[0]["identifier"])')
+          simulator_id=$(xcrun simctl create "omb-ios-click-$GITHUB_RUN_ID" "$device_type" "$runtime_id")
+          cleanup() { xcrun simctl shutdown "$simulator_id" >/dev/null 2>&1 || true; xcrun simctl delete "$simulator_id" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          xcrun simctl boot "$simulator_id"
+          xcrun simctl bootstatus "$simulator_id" -b
+          xcodebuild -project OpenMausCompanion.xcodeproj -scheme OpenMausCompanion -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" -derivedDataPath "$RUNNER_TEMP/omb-ios-click-build" -resultBundlePath "$RUNNER_TEMP/omb-ios-click.xcresult" -parallel-testing-enabled NO -only-testing:OpenMausCompanionUITests/BrowserControlUITests -only-testing:OpenMausCompanionUITests/ThreadNavigationUITests/testTopBarOpensThreadsWithIslandIntroEnabledAndSwitches -only-testing:OpenMausCompanionUITests/StopButtonUITests CODE_SIGNING_ALLOWED=NO test
+      - name: Keep native evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ios-click-reproduction
+          path: ${{ runner.temp }}/omb-ios-click.xcresult
+          if-no-files-found: warn
+          retention-days: 7
