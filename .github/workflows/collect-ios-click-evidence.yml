@@ -1,0 +1,24 @@
+name: Collect compact iOS click evidence
+on:
+  push:
+    branches: ["verify/ios-click-20261004"]
+    paths: [".github/workflows/collect-ios-click-evidence.yml"]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Collect exported screenshots and native result summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 37141783540 --repo dreamfarer-space/OpenMausBot --name ios-browser-probe-evidence --dir "$RUNNER_TEMP/native"
+          cat "$RUNNER_TEMP/native/omb-browser-probe-evidence/summary.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: ios-click-screenshots
+          path: ${{ runner.temp }}/native/omb-browser-probe-evidence
+          retention-days: 7
