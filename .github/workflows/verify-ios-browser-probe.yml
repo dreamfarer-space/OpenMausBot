@@ -1,0 +1,149 @@
+name: Isolated production browser click probe
+on:
+  push:
+    branches: ["verify/ios-click-20261004"]
+    paths: [".github/workflows/verify-ios-browser-probe.yml"]
+permissions:
+  contents: read
+jobs:
+  browser-probe:
+    runs-on: macos-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: milind-soni/OpenMausBot
+          ref: a1103965b6019446bb5cda5052ed40894dfe3989
+          persist-credentials: false
+      - name: Build unchanged browser views in an isolated test shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ios/ClickProbe ios/ClickProbeTests
+          cp ios/App/BrowserControlView.swift ios/App/BrowserTouchSurface.swift ios/App/BrowserPreview.swift ios/App/BackDeployCompat.swift ios/ClickProbe/
+          cp ios/UITests/BrowserControlUITests.swift ios/ClickProbeTests/
+          cat > ios/ClickProbe/ClickProbeApp.swift <<'SWIFTROOT'
+          import CompanionCore
+          import SwiftUI
+          
+          @MainActor
+          final class Session: ObservableObject {
+              func browserLiveClient() -> BrowserLiveClient? { BrowserPreview.client }
+          }
+          
+          @main
+          struct ClickProbeApp: App {
+              @StateObject private var session = Session()
+              private let bot: Bot = try! JSONDecoder().decode(Bot.self, from: Data(#"{"id":"preview-pepper","threadId":"preview-gmail","name":"Pepper","title":"Synthetic browser","description":"Offline fixture","notifications":false,"color":"purple","unread":false,"modelSelection":{"instanceId":"preview","model":"preview"},"createdAt":1789088400000,"busy":false}"#.utf8))
+              var body: some Scene {
+                  WindowGroup {
+                      BrowserPreviewNavigation(bot: bot).environmentObject(session)
+                  }
+              }
+          }
+          SWIFTROOT
+          cat > ios/ClickProbeTests/BrowserTapPositionUITests.swift <<'SWIFTDIAG'
+          import XCTest
+          final class BrowserTapPositionUITests: XCTestCase {
+              @MainActor
+              func testOffCentreTapProducesRemoteMouseRelease() {
+                  continueAfterFailure = false
+                  let app = XCUIApplication()
+                  app.launchArguments = ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+                  app.launch()
+                  app.buttons["Open browser"].tap()
+                  let take = app.buttons["Take control"]
+                  XCTAssertTrue(take.waitForExistence(timeout: 10))
+                  XCTAssertTrue(app.images["Pepper's browser"].waitForExistence(timeout: 5))
+                  take.tap()
+                  XCTAssertTrue(app.buttons["Hand back"].waitForExistence(timeout: 5))
+                  app.images["Pepper's browser"].coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.5)).tap()
+                  let address = app.textFields["Address"]
+                  expectation(for: NSPredicate(format: "value CONTAINS %@", "/tap?x="), evaluatedWith: address)
+                  waitForExpectations(timeout: 5)
+                  let tap = URLComponents(string: address.value as? String ?? "")?.queryItems ?? []
+                  XCTAssertEqual(Double(tap.first { $0.name == "x" }?.value ?? "") ?? -1, 320, accuracy: 2)
+                  XCTAssertEqual(Double(tap.first { $0.name == "y" }?.value ?? "") ?? -1, 360, accuracy: 2)
+                  let shot = XCTAttachment(screenshot: app.screenshot())
+                  shot.name = "Off-centre browser tap"
+                  shot.lifetime = .keepAlways
+                  add(shot)
+                  app.terminate()
+              }
+          }
+          SWIFTDIAG
+          cat > ios/ClickProbe.yml <<'YAMLPROJECT'
+          name: ClickProbe
+          options:
+            bundleIdPrefix: com.openmausbot.clickprobe
+            deploymentTarget:
+              iOS: "16.0"
+          packages:
+            CompanionCore:
+              path: .
+          schemes:
+            OpenMausCompanion:
+              build:
+                targets:
+                  OpenMausCompanion: all
+                  OpenMausCompanionUITests: [test]
+              test:
+                config: Debug
+                targets: [OpenMausCompanionUITests]
+          targets:
+            OpenMausCompanion:
+              type: application
+              platform: iOS
+              sources: [ClickProbe]
+              dependencies:
+                - package: CompanionCore
+                  product: CompanionCore
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.openmausbot.clickprobe
+                  SWIFT_VERSION: "5.9"
+                  TARGETED_DEVICE_FAMILY: "1"
+              info:
+                path: ClickProbe/Info.plist
+                properties:
+                  UILaunchScreen: {}
+                  CFBundleDisplayName: Browser Click Probe
+            OpenMausCompanionUITests:
+              type: bundle.ui-testing
+              platform: iOS
+              sources: [ClickProbeTests]
+              dependencies:
+                - target: OpenMausCompanion
+              settings:
+                base:
+                  PRODUCT_BUNDLE_IDENTIFIER: com.openmausbot.clickprobe.uitests
+                  SWIFT_VERSION: "5.9"
+                  GENERATE_INFOPLIST_FILE: YES
+          YAMLPROJECT
+          brew install xcodegen
+          cd ios
+          xcodegen generate --spec ClickProbe.yml
+          runtime_id=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["runtimes"] if x.get("isAvailable") and ".iOS-" in x["identifier"]]; r.sort(key=lambda x:tuple(map(int,x["version"].split(".")))); print(r[-1]["identifier"])')
+          device_type=$(xcrun simctl list devicetypes -j | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["devicetypes"] if x["name"]=="iPhone 16 Pro"]; print(r[0]["identifier"])')
+          simulator_id=$(xcrun simctl create "omb-browser-probe-$GITHUB_RUN_ID" "$device_type" "$runtime_id")
+          cleanup() { xcrun simctl shutdown "$simulator_id" >/dev/null 2>&1 || true; xcrun simctl delete "$simulator_id" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          xcrun simctl boot "$simulator_id"
+          perl -e 'alarm 180; exec @ARGV' xcrun simctl bootstatus "$simulator_id" -b
+          xcodebuild -project ClickProbe.xcodeproj -scheme OpenMausCompanion -configuration Debug -destination "platform=iOS Simulator,id=$simulator_id" -derivedDataPath "$RUNNER_TEMP/omb-browser-probe-build" -resultBundlePath "$RUNNER_TEMP/omb-browser-probe.xcresult" -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
+      - name: Export native test evidence
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/omb-browser-probe-evidence"
+          xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/omb-browser-probe.xcresult" > "$RUNNER_TEMP/omb-browser-probe-evidence/summary.json" || true
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/omb-browser-probe.xcresult" --output-path "$RUNNER_TEMP/omb-browser-probe-evidence/attachments" || true
+          cat "$RUNNER_TEMP/omb-browser-probe-evidence/summary.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: ios-browser-probe-evidence
+          path: |
+            ${{ runner.temp }}/omb-browser-probe.xcresult
+            ${{ runner.temp }}/omb-browser-probe-evidence
+          if-no-files-found: warn
+          retention-days: 7
